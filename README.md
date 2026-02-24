@@ -8,7 +8,7 @@ A semantic search system designed with scalability first
 
 ### Running the App
 1. Clone the repository
-2. Run `docker compose up --build`
+2. Run `docker compose up --build --force-recreate -d`
 3. The API will be available at `http://localhost:8080`
 
 ### API Endpoints
