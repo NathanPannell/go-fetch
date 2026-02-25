@@ -1,0 +1,10 @@
+services:
+  db:
+    volumes:
+      - /var/lib/postgresql/data
+
+  test-integration:
+    build: .
+    command: sh -c "pip install pytest requests && pytest -v --color=yes"
+    depends_on:
+      - app

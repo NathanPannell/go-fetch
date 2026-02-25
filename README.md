@@ -1,19 +1,29 @@
-# go-fetch
-A semantic search system designed with scalability first
+# Go Fetch: A Scalable Semantic Search System
 
 ## Getting Started
 
-### Prerequisites
-- Docker and Docker Compose
+To deploy the application, first copy the environment variables file.
 
-### Running the App
-1. Clone the repository
-2. Run `docker compose up --build --force-recreate -d`
-3. The API will be available at `http://localhost:8080`
+```bash
+cp .env.example .env
+```
 
-### API Endpoints
-- `GET /items` - List all items
-- `POST /items` - Create a new item
-- `GET /items/<id>` - Get a specific item
-- `PUT /items/<id>` - Update an item
-- `DELETE /items/<id>` - Delete an item
+Then, run:
+
+```bash
+docker compose up
+```
+
+## Testing:
+
+To run tests, use:
+
+```bash
+make test-integration
+```
+
+To run the development environment, use:
+
+```bash
+make dev
+```

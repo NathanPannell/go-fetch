@@ -5,3 +5,5 @@ python-dotenv
 flask-jwt-extended
 flask-bcrypt
 uuid
+pytest
+requests
