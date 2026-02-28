@@ -1,9 +1,14 @@
 Flask
-Flask-SQLAlchemy
-psycopg2-binary
+pymongo
 python-dotenv
 flask-jwt-extended
 flask-bcrypt
 uuid
 pytest
 requests
+celery
+redis
+minio
+PyMuPDF
+sentence-transformers
+torch

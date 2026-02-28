@@ -1,3 +1,4 @@
 *.pdf
 brainstorm/*
 .env
+*.pyc
