@@ -5,7 +5,7 @@ services:
       - "6379:6379"
 
   mongo:
-    image: mongo:6
+    image: mongodb/mongodb-atlas-local
     ports:
       - "27017:27017"
     volumes:

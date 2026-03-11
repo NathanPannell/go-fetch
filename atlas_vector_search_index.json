@@ -1,12 +1,14 @@
 {
-  "mappings": {
-    "dynamic": true,
-    "fields": {
-      "vector_embedding": {
-        "dimensions": 384,
-        "similarity": "cosine",
-        "type": "knnVector"
+  "name": "vector_index",
+  "type": "vectorSearch",
+  "definition": {
+    "fields": [
+      {
+        "type": "vector",
+        "path": "vector_embedding",
+        "numDimensions": 384,
+        "similarity": "cosine"
       }
-    }
+    ]
   }
 }

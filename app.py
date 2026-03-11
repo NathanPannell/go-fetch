@@ -2,12 +2,14 @@ import os
 from datetime import datetime
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
+from pymongo.operations import SearchIndexModel
 import pymongo
 from minio import Minio
 from dotenv import load_dotenv
 from flask_bcrypt import generate_password_hash, check_password_hash
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from uuid import uuid4
+from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
@@ -26,6 +28,32 @@ document_chunks_collection = db['DocumentChunks']
 
 users_collection.create_index([("username", pymongo.ASCENDING)], unique=True)
 print("Database connected, collections initialized")
+
+def init_vector_search_index():
+    existing = list(document_chunks_collection.list_search_indexes())
+    if any(idx.get("name") == "vector_index" for idx in existing):
+        print("Vector search index already exists")
+        return
+    model_def = SearchIndexModel(
+        definition={
+            "fields": [
+                {
+                    "type": "vector",
+                    "path": "vector_embedding",
+                    "numDimensions": 384,
+                    "similarity": "cosine"
+                }
+            ]
+        },
+        name="vector_index",
+        type="vectorSearch",
+    )
+    document_chunks_collection.create_search_index(model=model_def)
+    print("Vector search index created")
+
+init_vector_search_index()
+
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Initialize MinIO
 minio_client = Minio(
@@ -169,6 +197,43 @@ def get_user_data(username):
         "documents": documents,
         "document_chunks": chunks
     }), 200
+
+@app.route('/api/search', methods=['POST'])
+@jwt_required()
+def search():
+    data = request.get_json(silent=True)
+    if not data or 'query' not in data:
+        return jsonify({"error": "Missing 'query' field"}), 400
+
+    query_text = data['query']
+    limit = int(data.get('limit', 5))
+
+    query_vector = embedding_model.encode(query_text).tolist()
+
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "vector_index",
+                "path": "vector_embedding",
+                "queryVector": query_vector,
+                "numCandidates": limit * 10,
+                "limit": limit
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "text": 1,
+                "filename": 1,
+                "document_id": 1,
+                "score": {"$meta": "vectorSearchScore"}
+            }
+        }
+    ]
+
+    results = list(document_chunks_collection.aggregate(pipeline))
+    return jsonify({"results": results}), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

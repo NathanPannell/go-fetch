@@ -1,5 +1,5 @@
 Flask
-pymongo
+pymongo>=4.7
 python-dotenv
 flask-jwt-extended
 flask-bcrypt
