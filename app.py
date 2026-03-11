@@ -30,6 +30,8 @@ users_collection.create_index([("username", pymongo.ASCENDING)], unique=True)
 print("Database connected, collections initialized")
 
 def init_vector_search_index():
+    if "DocumentChunks" not in db.list_collection_names():
+        db.create_collection("DocumentChunks")
     existing = list(document_chunks_collection.list_search_indexes())
     if any(idx.get("name") == "vector_index" for idx in existing):
         print("Vector search index already exists")
@@ -70,6 +72,10 @@ if not minio_client.bucket_exists(bucket_name):
 # Pepper is added via an enviroment variable.
 def hash_password(password):
     return generate_password_hash(password + PEPPER).decode('utf-8')
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"}), 200
 
 @app.route('/auth/signup', methods=['POST'])
 def signup():

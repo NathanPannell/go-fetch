@@ -9,4 +9,5 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
     depends_on:
-      - app
+      app:
+        condition: service_healthy
