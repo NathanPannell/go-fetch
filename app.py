@@ -93,9 +93,9 @@ def signup():
         return jsonify({"error": "Username already exists"}), 409
 
     return jsonify({
-        "message": "User created successfully", 
+        "message": "User created successfully",
         "user_id": user_id
-    }), 201
+    }), 200
 
 @app.route('/auth/login', methods=['POST'])
 def login():
@@ -129,16 +129,16 @@ def get_users():
         "current_user": current_user
     }), 200
 
-@app.route('/api/upload', methods=['POST'])
+@app.route('/documents', methods=['POST'])
 @jwt_required()
 def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
-    
+
     if not file.filename.lower().endswith('.pdf'):
         return jsonify({"error": "Only PDFs are allowed"}), 400
 
@@ -146,68 +146,100 @@ def upload_file():
     user = users_collection.find_one({"username": username})
     if not user:
         return jsonify({"error": "User not found"}), 404
-        
+
     owner_id = str(user['_id'])
     document_id = str(uuid4())
     filename = file.filename
     upload_date = datetime.utcnow().isoformat() + "Z"
-    
+
     new_doc = {
         "owner_id": owner_id,
         "document_id": document_id,
         "filename": filename,
         "upload_date": upload_date,
-        "status": "pending",
-        "page_count": 0
+        "status": "processing",
+        "page_count": None
     }
     documents_collection.insert_one(new_doc)
-    
+
     file.seek(0, os.SEEK_END)
     size = file.tell()
     file.seek(0)
     minio_client.put_object(bucket_name, document_id, file, size, content_type="application/pdf")
-    
+
     from tasks import process_document
     process_document.delay(document_id, owner_id, filename)
-    
-    return jsonify({"document_id": document_id}), 202
 
-@app.route('/api/user-data/<username>', methods=['GET'])
+    return jsonify({
+        "message": "PDF uploaded, processing started",
+        "document_id": document_id,
+        "status": "processing"
+    }), 202
+
+
+@app.route('/documents', methods=['GET'])
 @jwt_required()
-def get_user_data(username):
+def list_documents():
+    username = get_jwt_identity()
     user = users_collection.find_one({"username": username})
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
+
     owner_id = str(user['_id'])
-    
-    # Fetch documents
-    documents = list(documents_collection.find({"owner_id": owner_id}))
-    for doc in documents:
-        doc['_id'] = str(doc['_id'])
-        
-    # Fetch chunks
-    chunks = list(document_chunks_collection.find({"owner_id": owner_id}))
-    for chunk in chunks:
-        chunk['_id'] = str(chunk['_id'])
-        
+    docs = list(documents_collection.find({"owner_id": owner_id}, {"_id": 0}))
+    result = [
+        {
+            "document_id": d["document_id"],
+            "filename": d["filename"],
+            "upload_date": d["upload_date"],
+            "status": d["status"],
+            "page_count": d.get("page_count")
+        }
+        for d in docs
+    ]
+    return jsonify(result), 200
+
+
+@app.route('/documents/<document_id>', methods=['DELETE'])
+@jwt_required()
+def delete_document(document_id):
+    username = get_jwt_identity()
+    user = users_collection.find_one({"username": username})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    owner_id = str(user['_id'])
+    doc = documents_collection.find_one({"document_id": document_id, "owner_id": owner_id})
+    if not doc:
+        return jsonify({"error": "Document not found or not owned by user"}), 404
+
+    documents_collection.delete_one({"document_id": document_id, "owner_id": owner_id})
+    document_chunks_collection.delete_many({"document_id": document_id, "owner_id": owner_id})
+
+    try:
+        minio_client.remove_object(bucket_name, document_id)
+    except Exception:
+        pass
+
     return jsonify({
-        "username": username,
-        "user_id": owner_id,
-        "documents": documents,
-        "document_chunks": chunks
+        "message": "Document and all associated data deleted",
+        "document_id": document_id
     }), 200
 
-@app.route('/api/search', methods=['POST'])
+
+@app.route('/search', methods=['GET'])
 @jwt_required()
 def search():
-    data = request.get_json(silent=True)
-    if not data or 'query' not in data:
-        return jsonify({"error": "Missing 'query' field"}), 400
+    query_text = request.args.get('q', '').strip()
+    if not query_text:
+        return jsonify({"error": "Missing query parameter 'q'"}), 400
 
-    query_text = data['query']
-    limit = int(data.get('limit', 5))
+    username = get_jwt_identity()
+    user = users_collection.find_one({"username": username})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
+    owner_id = str(user['_id'])
     query_vector = embedding_model.encode(query_text).tolist()
 
     pipeline = [
@@ -216,9 +248,15 @@ def search():
                 "index": "vector_index",
                 "path": "vector_embedding",
                 "queryVector": query_vector,
-                "numCandidates": limit * 10,
-                "limit": limit
+                "numCandidates": 100,
+                "limit": 50
             }
+        },
+        {
+            "$match": {"owner_id": owner_id}
+        },
+        {
+            "$limit": 5
         },
         {
             "$project": {
@@ -232,7 +270,7 @@ def search():
     ]
 
     results = list(document_chunks_collection.aggregate(pipeline))
-    return jsonify({"results": results}), 200
+    return jsonify(results), 200
 
 
 if __name__ == '__main__':
