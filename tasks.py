@@ -6,6 +6,13 @@ from minio import Minio
 from pymongo import MongoClient
 from sentence_transformers import SentenceTransformer
 
+
+# --- Infrastructure Setup ---
+
+# Get Environment Variables
+chunk_size = os.getenv("DOCUMENT_CHUNK_SIZE", 400)
+overlap = os.getenv("DOCUMENT_CHUNK_OVERLAP_SIZE", 60)
+
 # Initialize Celery
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
 app = Celery('tasks', broker=redis_url)
@@ -25,11 +32,27 @@ minio_client = Minio(
 )
 bucket_name = "raw-pdfs"
 
-# Initialize SentenceTransformer (lazy load could be better but this works for top-level if worker only does this)
+# Initialize SentenceTransformer
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-def semantic_chunking(text, chunk_size=500, overlap=50):
-    """Simple word-based chunking with overlap."""
+
+# --- Helper Functions ---
+
+def fetch_pdf(bucket_name, document_id):
+    response = minio_client.get_object(bucket_name, document_id)
+    pdf_bytes = response.read()
+    response.close()
+    response.release_conn()
+    return pdf_bytes
+
+def extract_text(pdf_bytes):
+    pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
+    page_count = len(pdf_document)
+    full_text = "\n".join(page.get_text() for page in pdf_document)
+    pdf_document.close()
+    return full_text, page_count
+
+def get_chunks(text):
     words = text.split()
     chunks = []
     i = 0
@@ -40,52 +63,40 @@ def semantic_chunking(text, chunk_size=500, overlap=50):
         i += chunk_size - overlap
     return chunks
 
+def get_embeddings(chunks):
+    chunk_records = []
+    for chunk in chunks:
+        embedding = model.encode(chunk).tolist()
+        chunk_records.append({
+            "owner_id": owner_id,
+            "text": chunk,
+            "vector_embedding": embedding,
+            "document_id": document_id,
+            "filename": filename
+        })
+    return chunk_records
+
+# --- Tasks ---
 @app.task
 def process_document(document_id, owner_id, filename):
     try:
-        # 1. Fetch from MinIO
-        response = minio_client.get_object(bucket_name, document_id)
-        pdf_bytes = response.read()
-        response.close()
-        response.release_conn()
+        pdf_bytes = fetch_pdf(bucket_name, document_id)
 
-        # 2. Parse with PyMuPDF
-        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
-        page_count = len(pdf_document)
-        
-        full_text = ""
-        for page_num in range(page_count):
-            page = pdf_document.load_page(page_num)
-            full_text += page.get_text() + "\n"
-            
-        pdf_document.close()
+        full_text, page_count = extract_text(pdf_bytes)
 
-        # 3. Chunking
-        chunks = semantic_chunking(full_text)
-        
-        # 4. Vectorize and Store
-        chunk_records = []
-        for chunk in chunks:
-            embedding = model.encode(chunk).tolist()
-            chunk_records.append({
-                "owner_id": owner_id,
-                "text": chunk,
-                "vector_embedding": embedding,
-                "document_id": document_id,
-                "filename": filename
-            })
-            
+        chunks = get_chunks(full_text)
+
+        chunk_records = get_embeddings(chunks)
+
         if chunk_records:
             document_chunks_collection.insert_many(chunk_records)
-            
-        # 5. Update Document Status
+
         documents_collection.update_one(
             {"document_id": document_id},
             {"$set": {"status": "ready", "page_count": page_count}}
         )
 
     except Exception as e:
-        print(f"Error processing document {document_id}: {e}")
         documents_collection.update_one(
             {"document_id": document_id},
             {"$set": {"status": "failed"}}
