@@ -1,9 +1,9 @@
 TEST_COMPOSE = docker compose -f docker-compose.yml -f docker-compose.test.yml
 
-.PHONY: test-integration
-test-integration:
+.PHONY: test
+test:
 	docker compose down && \
-	$(TEST_COMPOSE) up --build --abort-on-container-exit --attach test-integration || \
+	$(TEST_COMPOSE) up --build --abort-on-container-exit --attach test || \
 	$(TEST_COMPOSE) down -v
 
 .PHONY: dev

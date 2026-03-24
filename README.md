@@ -19,7 +19,7 @@ docker compose up
 To run tests, use:
 
 ```bash
-make test-integration
+make test
 ```
 
 To run the development environment, use:
