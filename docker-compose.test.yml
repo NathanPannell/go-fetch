@@ -1,5 +1,5 @@
 services:
-  test-integration:
+  test:
     build: .
     command: sh -c "pip install pytest requests && pytest -v --color=yes"
     environment:

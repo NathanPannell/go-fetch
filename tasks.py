@@ -1,39 +1,13 @@
-import os
 import io
 import fitz  # PyMuPDF
 from celery import Celery
-from minio import Minio
-from pymongo import MongoClient
-from sentence_transformers import SentenceTransformer
-
-
-# --- Infrastructure Setup ---
-
-# Get Environment Variables
-chunk_size = os.getenv("DOCUMENT_CHUNK_SIZE", 400)
-overlap = os.getenv("DOCUMENT_CHUNK_OVERLAP_SIZE", 60)
-
-# Initialize Celery
-redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-app = Celery('tasks', broker=redis_url)
-
-# Initialize MongoDB
-mongo_client = MongoClient(os.getenv('MONGO_URI', 'mongodb://localhost:27017/flaskdb'))
-db = mongo_client.get_database() if mongo_client.get_database().name else mongo_client['flaskdb']
-documents_collection = db['Documents']
-document_chunks_collection = db['DocumentChunks']
-
-# Initialize MinIO
-minio_client = Minio(
-    os.getenv("MINIO_ENDPOINT", "minio:9000"),
-    access_key=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
-    secret_key=os.getenv("MINIO_SECRET_KEY", "minioadmin"),
-    secure=False
+from config import REDIS_URL, DOCUMENT_CHUNK_SIZE, DOCUMENT_CHUNK_OVERLAP_SIZE
+from clients import (
+    documents_collection, document_chunks_collection,
+    minio_client, bucket_name, embedding_model,
 )
-bucket_name = "raw-pdfs"
 
-# Initialize SentenceTransformer
-model = SentenceTransformer('all-MiniLM-L6-v2')
+app = Celery('tasks', broker=REDIS_URL)
 
 
 # --- Helper Functions ---
@@ -57,16 +31,16 @@ def get_chunks(text):
     chunks = []
     i = 0
     while i < len(words):
-        chunk = " ".join(words[i : i + chunk_size])
+        chunk = " ".join(words[i : i + DOCUMENT_CHUNK_SIZE])
         if chunk.strip():
             chunks.append(chunk)
-        i += chunk_size - overlap
+        i += DOCUMENT_CHUNK_SIZE - DOCUMENT_CHUNK_OVERLAP_SIZE
     return chunks
 
-def get_embeddings(chunks):
+def get_embeddings(chunks, owner_id, document_id, filename):
     chunk_records = []
     for chunk in chunks:
-        embedding = model.encode(chunk).tolist()
+        embedding = embedding_model.encode(chunk).tolist()
         chunk_records.append({
             "owner_id": owner_id,
             "text": chunk,
@@ -76,7 +50,9 @@ def get_embeddings(chunks):
         })
     return chunk_records
 
+
 # --- Tasks ---
+
 @app.task
 def process_document(document_id, owner_id, filename):
     try:
@@ -86,7 +62,7 @@ def process_document(document_id, owner_id, filename):
 
         chunks = get_chunks(full_text)
 
-        chunk_records = get_embeddings(chunks)
+        chunk_records = get_embeddings(chunks, owner_id, document_id, filename)
 
         if chunk_records:
             document_chunks_collection.insert_many(chunk_records)
