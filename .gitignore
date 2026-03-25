@@ -1,5 +1,5 @@
 *.pdf
-brainstorm/*
+brainstorm*
 .env
 *.pyc
-.claude/*
+.claude*
