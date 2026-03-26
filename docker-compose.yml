@@ -12,11 +12,11 @@ services:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('isMaster').ismaster","--quiet"]
       interval: 5s
       timeout: 10s
       retries: 10
-      start_period: 10s
+      start_period: 30s
 
   minio:
     image: minio/minio

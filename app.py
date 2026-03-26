@@ -8,7 +8,7 @@ from routes.documents import documents_bp
 from routes.search import search_bp
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
+app.config["JWT_SECRET_KEY"] = JWT_SECRET_KEY
 JWTManager(app)
 
 app.register_blueprint(health_bp)
@@ -18,5 +18,5 @@ app.register_blueprint(search_bp)
 
 init_vector_search_index()
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)

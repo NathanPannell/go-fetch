@@ -3,9 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MONGO_URI = os.getenv('MONGO_URI')
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
-PEPPER = os.getenv('PEPPER')
+MONGO_URI = os.getenv("MONGO_URI")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+PEPPER = os.getenv("PEPPER")
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
