@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from flask import Blueprint, request, jsonify
 from tasks import process_document
@@ -9,8 +9,9 @@ from clients import (
     documents_collection,
     document_chunks_collection,
     minio_client,
-    bucket_name,
+    minio_pdf_bucket_name,
 )
+from bson import ObjectId
 
 documents_bp = Blueprint("documents", __name__)
 
@@ -22,33 +23,28 @@ def upload_file():
     if not file or file.filename == "" or not file.filename.lower().endswith(".pdf"):
         return jsonify({"error": "Unable to find PDF"}), 400
 
-    user_id = get_jwt_identity()
-    user = users_collection.find_one({"_id": user_id})
-    if not user:
-        return jsonify({"error": "Invalid JWT"}), 401
-
-    document_id = str(uuid4())
+    owner_id = get_jwt_identity()
     filename = file.filename
-    upload_date = datetime.now(datetime.timezone.utc).isoformat() + "Z"
+    upload_date = datetime.now(timezone.utc).isoformat() + "Z"
 
     new_doc = {
-        "owner_id": user_id,
-        "document_id": document_id,
+        "owner_id": owner_id,
         "filename": filename,
         "upload_date": upload_date,
         "status": "processing",
         "page_count": None,
     }
-    documents_collection.insert_one(new_doc)
+    result = documents_collection.insert_one(new_doc)
+    document_id = str(result.inserted_id)
 
     file.seek(0, os.SEEK_END)
     size = file.tell()
     file.seek(0)
     minio_client.put_object(
-        bucket_name, document_id, file, size, content_type="application/pdf"
+        minio_pdf_bucket_name, document_id, file, size, content_type="application/pdf"
     )
 
-    process_document.delay(document_id, user_id, filename)
+    process_document.delay(document_id, owner_id, filename)
 
     return (
         jsonify(
@@ -65,15 +61,11 @@ def upload_file():
 @documents_bp.route("/documents", methods=["GET"])
 @jwt_required()
 def list_documents():
-    user_id = get_jwt_identity()
-    user = users_collection.find_one({"_id": user_id})
-    if not user:
-        return jsonify({"error": "Invalid JWT"}), 401
-
-    docs = list(documents_collection.find({"owner_id": user_id}))
+    owner_id = get_jwt_identity()
+    docs = list(documents_collection.find({"owner_id": owner_id}))
     result = [
         {
-            "document_id": d["document_id"],
+            "document_id": str(d["_id"]),
             "filename": d["filename"],
             "upload_date": d["upload_date"],
             "status": d["status"],
@@ -87,22 +79,19 @@ def list_documents():
 @documents_bp.route("/documents/<document_id>", methods=["DELETE"])
 @jwt_required()
 def delete_document(document_id):
-    user_id = get_jwt_identity()
-    user = users_collection.find_one({"_id": user_id})
-    if not user:
-        return jsonify({"error": "Invalid JWT"}), 401
+    owner_id = get_jwt_identity()
 
     doc = documents_collection.find_one(
-        {"document_id": document_id, "owner_id": user_id}
+        {"_id": ObjectId(document_id), "owner_id": owner_id}
     )
     if not doc:
         return jsonify({"error": "Document not found or not owned by user"}), 404
 
-    documents_collection.delete_one({"document_id": document_id, "owner_id": user_id})
+    documents_collection.delete_one({"_id": ObjectId(document_id), "owner_id": owner_id})
     document_chunks_collection.delete_many(
-        {"document_id": document_id, "owner_id": user_id}
+        {"document_id": document_id, "owner_id": owner_id}
     )
-    minio_client.remove_object(bucket_name, document_id)
+    minio_client.remove_object(minio_pdf_bucket_name, document_id)
 
     return (
         jsonify(

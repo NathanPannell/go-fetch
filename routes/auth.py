@@ -18,16 +18,15 @@ def signup():
     if not creds or "username" not in creds or "password" not in creds:
         return jsonify({"error": "Invalid request"}), 400
 
+    if users_collection.find_one({"username": creds["username"]}):
+        return jsonify({"error": "Username already exists"}), 409
+
     new_user = {
         "username": creds["username"],
         "hashed_password": hash_password(creds["password"]),
     }
-
-    try:
-        result = users_collection.insert_one(new_user)
-        user_id = str(result.inserted_id)
-    except pymongo.errors.DuplicateKeyError:
-        return jsonify({"error": "Username already exists"}), 409
+    result = users_collection.insert_one(new_user)
+    user_id = str(result.inserted_id)
 
     return jsonify({"message": "User created successfully", "user_id": user_id}), 200
 
@@ -42,7 +41,7 @@ def login():
     if user and check_password_hash(
         user["hashed_password"], creds["password"] + PEPPER
     ):
-        access_token = create_access_token(identity=user["_id"])
+        access_token = create_access_token(identity=str(user["_id"]))
         return jsonify({"token": access_token, "user_id": str(user["_id"])}), 200
     else:
         return jsonify({"error": "Invalid credentials"}), 401

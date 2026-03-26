@@ -3,3 +3,4 @@ brainstorm*
 .env
 *.pyc
 .claude*
+.idea/

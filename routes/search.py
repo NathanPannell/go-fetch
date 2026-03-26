@@ -13,10 +13,7 @@ def search():
         return jsonify({"error": "Missing query parameter 'q'"}), 400
     query_vector = embedding_model.encode(query_text).tolist()
 
-    user_id = get_jwt_identity()
-    user = users_collection.find_one({"_id": user_id})
-    if not user:
-        return jsonify({"error": "Invalid JWT"}), 401
+    owner_id = get_jwt_identity()
 
     pipeline = [
         {
@@ -26,7 +23,7 @@ def search():
                 "queryVector": query_vector,
                 "numCandidates": 100,
                 "limit": 5,
-                "filter": {"term": {"path": "owner_id", "query": user_id}},
+                "filter": {"owner_id": owner_id},
             }
         },
         {

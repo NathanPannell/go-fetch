@@ -8,6 +8,7 @@ from clients import (
     minio_pdf_bucket_name,
     embedding_model,
 )
+from bson import ObjectId
 
 app = Celery("tasks", broker=REDIS_URL)
 
@@ -76,12 +77,12 @@ def process_document(document_id, owner_id, filename):
             document_chunks_collection.insert_many(chunk_records)
 
         documents_collection.update_one(
-            {"document_id": document_id},
+            {"_id": ObjectId(document_id)},
             {"$set": {"status": "ready", "page_count": page_count}},
         )
 
     except Exception as e:
         documents_collection.update_one(
-            {"document_id": document_id},
+            {"_id": ObjectId(document_id)},
             {"$set": {"status": "failed", "error_message": e}},
         )

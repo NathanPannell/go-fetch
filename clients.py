@@ -39,6 +39,10 @@ def init_vector_search_index():
                     "path": "vector_embedding",
                     "numDimensions": 384,
                     "similarity": "cosine",
+                },
+                {
+                    "type": "filter",
+                    "path": "owner_id",
                 }
             ]
         },
