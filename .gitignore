@@ -4,6 +4,7 @@ brainstorm/
 .vscode/
 .idea/
 perf/results/
+profile/results/
 *.pyc
 *__pycache__
 *.pdf

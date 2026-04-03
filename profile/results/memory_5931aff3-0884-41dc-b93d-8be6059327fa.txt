@@ -1,0 +1,20 @@
+/usr/local/lib/python3.11/cProfile.py:88: size=385 KiB, count=3613, average=109 B
+/usr/local/lib/python3.11/cProfile.py:56: size=177 KiB, count=7427, average=24 B
+/usr/local/lib/python3.11/cProfile.py:127: size=155 KiB, count=3085, average=51 B
+/usr/local/lib/python3.11/cProfile.py:68: size=140 KiB, count=1328, average=108 B
+/usr/local/lib/python3.11/cProfile.py:66: size=82.2 KiB, count=1316, average=64 B
+/app/tasks.py:54: size=72.6 KiB, count=2319, average=32 B
+/usr/local/lib/python3.11/http/client.py:644: size=48.2 KiB, count=4, average=12.1 KiB
+/usr/local/lib/python3.11/cProfile.py:125: size=19.2 KiB, count=308, average=64 B
+/usr/local/lib/python3.11/threading.py:265: size=8360 B, count=22, average=380 B
+/usr/local/lib/python3.11/site-packages/pymongo/synchronous/pool.py:162: size=5248 B, count=11, average=477 B
+/usr/local/lib/python3.11/email/feedparser.py:216: size=4978 B, count=3, average=1659 B
+<frozen importlib._bootstrap_external>:729: size=4717 B, count=37, average=127 B
+/usr/local/lib/python3.11/site-packages/pymupdf/__init__.py:22027: size=4484 B, count=2, average=2242 B
+/usr/local/lib/python3.11/site-packages/sentence_transformers/SentenceTransformer.py:868: size=4254 B, count=3, average=1418 B
+/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py:1790: size=3816 B, count=32, average=119 B
+/app/tasks.py:44: size=3742 B, count=6, average=624 B
+/usr/local/lib/python3.11/site-packages/minio/api.py:249: size=3574 B, count=3, average=1191 B
+/usr/local/lib/python3.11/site-packages/sentence_transformers/models/Pooling.py:135: size=3570 B, count=3, average=1190 B
+/usr/local/lib/python3.11/site-packages/torch/nn/modules/module.py:1779: size=3264 B, count=28, average=117 B
+/usr/local/lib/python3.11/site-packages/pymongo/synchronous/pool.py:1173: size=3262 B, count=3, average=1087 B

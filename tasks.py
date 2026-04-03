@@ -1,3 +1,7 @@
+import cProfile
+import tracemalloc
+import os
+
 import fitz  # PyMuPDF
 from celery import Celery
 from config import REDIS_URL, DOCUMENT_CHUNK_SIZE, DOCUMENT_CHUNK_OVERLAP_SIZE
@@ -65,6 +69,12 @@ def get_embeddings(chunks, owner_id, document_id, filename):
 
 @app.task
 def process_document(document_id, owner_id, filename):
+    profiling = os.environ.get("PROFILING_ENABLED", "").lower() == "true"
+    if profiling:
+        pr = cProfile.Profile()
+        tracemalloc.start()
+        pr.enable()
+
     try:
         pdf_bytes = fetch_pdf(minio_pdf_bucket_name, document_id)
 
@@ -86,3 +96,15 @@ def process_document(document_id, owner_id, filename):
             {"_id": ObjectId(document_id)},
             {"$set": {"status": "failed", "error_message": e}},
         )
+
+    finally:
+        if profiling:
+            pr.disable()
+            task_id = process_document.request.id or document_id
+            os.makedirs("/profile/results", exist_ok=True)
+            pr.dump_stats(f"/profile/results/worker_{task_id}.prof")
+            snap = tracemalloc.take_snapshot()
+            tracemalloc.stop()
+            with open(f"/profile/results/memory_{task_id}.txt", "w") as f:
+                for s in snap.statistics("lineno")[:20]:
+                    f.write(str(s) + "\n")

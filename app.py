@@ -1,3 +1,7 @@
+import os
+import time
+
+import pymongo.errors
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from config import JWT_SECRET_KEY
@@ -16,7 +20,19 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(documents_bp)
 app.register_blueprint(search_bp)
 
-init_vector_search_index()
+for _attempt in range(12):
+    try:
+        init_vector_search_index()
+        break
+    except pymongo.errors.PyMongoError:
+        if _attempt < 11:
+            time.sleep(5)
+        else:
+            raise
+
+if os.environ.get("PROFILING_ENABLED", "").lower() == "true":
+    import signal, sys
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
