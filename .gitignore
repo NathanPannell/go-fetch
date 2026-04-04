@@ -1,7 +1,11 @@
 *.pdf
-!perf/fixtures/*.pdf
 brainstorm*
 .env
 *.pyc
 .claude*
 .idea/
+*.txt
+*.prof
+*.csv
+*.html
+*.log
