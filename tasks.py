@@ -20,7 +20,7 @@ app = Celery("tasks", broker=REDIS_URL)
 # --- Helper Functions ---
 
 
-def fetch_pdf(bucket_name, document_id):
+def _fetch_pdf(bucket_name, document_id):
     response = minio_client.get_object(bucket_name, document_id)
     pdf_bytes = response.read()
     response.close()
@@ -28,7 +28,7 @@ def fetch_pdf(bucket_name, document_id):
     return pdf_bytes
 
 
-def extract_text(pdf_bytes):
+def _extract_text(pdf_bytes):
     pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
     page_count = len(pdf_document)
     full_text = "\n".join(page.get_text() for page in pdf_document)
@@ -36,7 +36,7 @@ def extract_text(pdf_bytes):
     return full_text, page_count
 
 
-def get_chunks(text):
+def _get_chunks(text):
     words = text.split()
     chunks = []
     i = 0
@@ -48,7 +48,7 @@ def get_chunks(text):
     return chunks
 
 
-def get_embeddings(chunks, owner_id, document_id, filename):
+def _get_embeddings(chunks, owner_id, document_id, filename):
     chunk_records = []
     for chunk in chunks:
         embedding = embedding_model.encode(chunk).tolist()
@@ -92,13 +92,13 @@ def process_document(document_id, owner_id, filename):
         pr = _start_profiling()
 
     try:
-        pdf_bytes = fetch_pdf(minio_pdf_bucket_name, document_id)
+        pdf_bytes = _fetch_pdf(minio_pdf_bucket_name, document_id)
 
-        full_text, page_count = extract_text(pdf_bytes)
+        full_text, page_count = _extract_text(pdf_bytes)
 
-        chunks = get_chunks(full_text)
+        chunks = _get_chunks(full_text)
 
-        chunk_records = get_embeddings(chunks, owner_id, document_id, filename)
+        chunk_records = _get_embeddings(chunks, owner_id, document_id, filename)
         if chunk_records:
             document_chunks_collection.insert_many(chunk_records)
 

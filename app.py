@@ -6,6 +6,7 @@ import time
 import pymongo.errors
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from werkzeug.middleware.profiler import ProfilerMiddleware
 from config import JWT_SECRET_KEY
 from clients import init_vector_search_index
 from routes.health import health_bp
@@ -35,12 +36,11 @@ for _attempt in range(12):
             raise
 
 if os.environ.get("PROFILING_ENABLED", "").lower() == "true":
-    from werkzeug.middleware.profiler import ProfilerMiddleware
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     app.wsgi_app = ProfilerMiddleware(
         app.wsgi_app,
         restrictions=[30],
-        profile_dir="/profile/results",
+        profile_dir="/profile/results/traces",
     )
 
 if __name__ == "__main__":
