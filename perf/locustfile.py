@@ -66,7 +66,7 @@ if _SCENARIO == "baseline":
         ]
 
         def tick(self):
-            t = self.get_current_time()
+            t = self.get_run_time()
             for stage in self.stages:
                 if t < stage["duration"]:
                     return (stage["users"], stage["spawn_rate"])
@@ -86,7 +86,7 @@ elif _SCENARIO == "stress":
         ]
 
         def tick(self):
-            t = self.get_current_time()
+            t = self.get_run_time()
             for stage in self.stages:
                 if t < stage["duration"]:
                     return (stage["users"], stage["spawn_rate"])
@@ -102,7 +102,7 @@ elif _SCENARIO == "spike":
         ]
 
         def tick(self):
-            t = self.get_current_time()
+            t = self.get_run_time()
             for stage in self.stages:
                 if t < stage["duration"]:
                     return (stage["users"], stage["spawn_rate"])
