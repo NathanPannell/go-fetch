@@ -1,6 +1,10 @@
-*.pdf
-brainstorm*
+brainstorm/
 .env
-*.pyc
-.claude*
+.claude/
+.vscode/
 .idea/
+perf/results/
+profile/results/
+*.pyc
+*__pycache__
+*.pdf
