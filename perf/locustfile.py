@@ -56,6 +56,19 @@ class GoFetchUser(HttpUser):
     def list_documents(self):
         self.client.get("/documents", headers=self.headers)
 
+    @task(1)
+    def refresh_login(self):
+        # Re-login with the existing account to measure steady-state auth latency,
+        # separate from the cold-start burst in on_start.
+        resp = self.client.post(
+            "/auth/login",
+            json={"username": self.username, "password": "perfpass123"},
+            name="/auth/login (steady-state)",
+        )
+        if resp.status_code == 200:
+            self.token = resp.json()["token"]
+            self.headers = {"Authorization": f"Bearer {self.token}"}
+
 
 # LoadTestShape selected by PERF_SCENARIO
 if _SCENARIO == "baseline":
