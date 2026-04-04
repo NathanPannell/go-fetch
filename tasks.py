@@ -64,6 +64,24 @@ def get_embeddings(chunks, owner_id, document_id, filename):
     return chunk_records
 
 
+def _start_profiling():
+    pr = cProfile.Profile()
+    tracemalloc.start()
+    pr.enable()
+    return pr
+
+
+def _dump_profiling(pr, task_id):
+    pr.disable()
+    os.makedirs("/profile/results", exist_ok=True)
+    pr.dump_stats(f"/profile/results/worker_{task_id}.prof")
+    snap = tracemalloc.take_snapshot()
+    tracemalloc.stop()
+    with open(f"/profile/results/memory_{task_id}.txt", "w") as f:
+        for s in snap.statistics("lineno")[:20]:
+            f.write(str(s) + "\n")
+
+
 # --- Tasks ---
 
 
@@ -71,9 +89,7 @@ def get_embeddings(chunks, owner_id, document_id, filename):
 def process_document(document_id, owner_id, filename):
     profiling = os.environ.get("PROFILING_ENABLED", "").lower() == "true"
     if profiling:
-        pr = cProfile.Profile()
-        tracemalloc.start()
-        pr.enable()
+        pr = _start_profiling()
 
     try:
         pdf_bytes = fetch_pdf(minio_pdf_bucket_name, document_id)
@@ -99,12 +115,5 @@ def process_document(document_id, owner_id, filename):
 
     finally:
         if profiling:
-            pr.disable()
             task_id = process_document.request.id or document_id
-            os.makedirs("/profile/results", exist_ok=True)
-            pr.dump_stats(f"/profile/results/worker_{task_id}.prof")
-            snap = tracemalloc.take_snapshot()
-            tracemalloc.stop()
-            with open(f"/profile/results/memory_{task_id}.txt", "w") as f:
-                for s in snap.statistics("lineno")[:20]:
-                    f.write(str(s) + "\n")
+            _dump_profiling(pr, task_id)

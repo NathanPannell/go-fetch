@@ -41,10 +41,12 @@ def collect_stats(results_dir, stop_event):
             time.sleep(2)
 
 
+results_dir = os.environ["RESULTS_DIR"]
+
 stop = threading.Event()
 t = threading.Thread(
     target=collect_stats,
-    args=(os.environ["RESULTS_DIR"], stop),
+    args=(results_dir, stop),
     daemon=True,
 )
 t.start()
@@ -58,6 +60,8 @@ subprocess.run(
         "-r", "2",
         "--run-time", "60s",
         "--host", os.environ["APP_URL"],
+        "--html", os.path.join(results_dir, "locust_report.html"),
+        "--csv", os.path.join(results_dir, "locust"),
     ]
 )
 
