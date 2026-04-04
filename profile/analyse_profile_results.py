@@ -2,10 +2,12 @@
 Generate profiling charts from profile/results/.
 Outputs PNG files to profile/results/.
 """
+
 import glob
 import pstats
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -45,22 +47,24 @@ print("Saved resource_usage.png")
 
 # ── 2. Worker: stacked bar — time per phase across all tasks ─────────────────
 
+
 # Buckets that matter
 def match_func(key, fragment):
     """Match against filename or function name in the pstats key tuple (file, lineno, func)."""
     filename, _, func = key
     return fragment in filename or fragment in func
 
+
 BUCKETS = {
-    "linear (BERT weights)":    "torch._C._nn.linear",
-    "layer_norm":               "torch.layer_norm",
-    "attention":                "torch._C._nn.scaled_dot_product_attention",
-    "gelu activation":          "torch._C._nn.gelu",
-    "embedding lookup":         "torch.embedding",
-    "pooling":                  "sentence_transformers/models/Pooling.py",
-    "PDF extraction":           "pymupdf._extra.page_get_textpage",
-    "tokenizer":                "encode_batch",
-    "MongoDB / network":        "recv_into",
+    "linear (BERT weights)": "torch._C._nn.linear",
+    "layer_norm": "torch.layer_norm",
+    "attention": "torch._C._nn.scaled_dot_product_attention",
+    "gelu activation": "torch._C._nn.gelu",
+    "embedding lookup": "torch.embedding",
+    "pooling": "sentence_transformers/models/Pooling.py",
+    "PDF extraction": "pymupdf._extra.page_get_textpage",
+    "tokenizer": "encode_batch",
+    "MongoDB / network": "recv_into",
 }
 
 files = sorted(f for f in glob.glob(f"{RESULTS}/worker_*.prof") if "merged" not in f)
@@ -138,7 +142,10 @@ app_df = pd.DataFrame(rows_app).sort_values("tottime", ascending=False).head(20)
 fig, ax = plt.subplots(figsize=(13, 7))
 bars = ax.barh(app_df["func"][::-1], app_df["tottime"][::-1], color="steelblue")
 ax.set_xlabel("tottime (s)")
-ax.set_title("Flask process — top 20 functions by CPU time\n(idle poll/lock/exec excluded)", fontsize=12)
+ax.set_title(
+    "Flask process — top 20 functions by CPU time\n(idle poll/lock/exec excluded)",
+    fontsize=12,
+)
 ax.grid(axis="x", alpha=0.3)
 plt.tight_layout()
 plt.savefig(f"{RESULTS}/app_hotspots.png", dpi=150)
