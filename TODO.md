@@ -1,2 +1,0 @@
-- add logging
-- add exception handling for delete queries in documents.py
