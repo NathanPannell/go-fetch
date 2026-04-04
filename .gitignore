@@ -1,4 +1,5 @@
 *.pdf
+!perf/fixtures/*.pdf
 brainstorm*
 .env
 *.pyc

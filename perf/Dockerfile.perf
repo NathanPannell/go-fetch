@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+RUN pip install --no-cache-dir locust
+COPY perf/locustfile.py /perf/locustfile.py
+COPY perf/run.sh /perf/run.sh
+RUN chmod +x /perf/run.sh
+CMD ["/perf/run.sh"]
