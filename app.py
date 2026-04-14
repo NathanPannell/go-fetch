@@ -37,10 +37,12 @@ for _attempt in range(12):
 
 if os.environ.get("PROFILING_ENABLED", "").lower() == "true":
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    _traces_dir = "/profile/results/traces"
+    os.makedirs(_traces_dir, exist_ok=True)
     app.wsgi_app = ProfilerMiddleware(
         app.wsgi_app,
         restrictions=[30],
-        profile_dir="/profile/results/traces",
+        profile_dir=_traces_dir,
     )
 
 if __name__ == "__main__":
