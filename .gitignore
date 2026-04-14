@@ -1,10 +1,15 @@
 brainstorm/
 .env
-.claude/
 .vscode/
 .idea/
 perf/results/
 profile/results/
 *.pyc
+.claude*
+*.txt
+*.prof
+*.csv
+*.html
+*.log
 *__pycache__
 *.pdf
