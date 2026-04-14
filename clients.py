@@ -1,5 +1,6 @@
 import pymongo
 from pymongo import MongoClient
+from minio.error import S3Error
 from pymongo.operations import SearchIndexModel
 from minio import Minio
 from sentence_transformers import SentenceTransformer
@@ -43,7 +44,7 @@ def init_vector_search_index():
                 {
                     "type": "filter",
                     "path": "owner_id",
-                }
+                },
             ]
         },
         name="vector_index",
@@ -60,8 +61,12 @@ minio_client = Minio(
     secure=False,
 )
 minio_pdf_bucket_name = "uploaded-pdfs"
-if not minio_client.bucket_exists(minio_pdf_bucket_name):
+
+try:
     minio_client.make_bucket(minio_pdf_bucket_name)
+except S3Error:
+    # bucket already created by replica api
+    pass
 
 # --- Embeddings ---
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
