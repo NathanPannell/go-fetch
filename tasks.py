@@ -112,8 +112,9 @@ def process_document(document_id, owner_id, filename):
             {"$set": {"status": "ready", "page_count": page_count}},
         )
 
-        for key in redis_client.scan_iter(f"search:{owner_id}:*"):
-            redis_client.delete(key)
+        keys = list(redis_client.scan_iter(f"search:{owner_id}:*"))
+        if keys:
+            redis_client.delete(*keys)
 
     except Exception as e:
         documents_collection.update_one(

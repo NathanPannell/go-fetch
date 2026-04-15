@@ -97,8 +97,9 @@ def delete_document(document_id):
 
     try:
         document_chunks_collection.delete_many({"document_id": document_id, "owner_id": owner_id})
-        for key in redis_client.scan_iter(f"search:{owner_id}:*"):
-            redis_client.delete(key)
+        keys = list(redis_client.scan_iter(f"search:{owner_id}:*"))
+        if keys:
+            redis_client.delete(*keys)
     except Exception as e:
         logging.error("Delete failed at step=chunks document_id=%s: %s", document_id, e)
         return jsonify({"error": "Failed to delete document chunks"}), 500

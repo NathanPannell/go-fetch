@@ -27,19 +27,29 @@ def search():
     embedding_key = f"embedding:{qhash}"
 
     # Layer 1: per-user result cache
-    cached_results = redis_client.get(result_key)
-    if cached_results is not None:
-        response = jsonify(json.loads(cached_results))
-        response.headers["X-Cache"] = "HIT"
-        return response, 200
+    try:
+        cached_results = redis_client.get(result_key)
+        if cached_results is not None:
+            response = jsonify(json.loads(cached_results))
+            response.headers["X-Cache"] = "HIT"
+            return response, 200
+    except Exception:
+        pass
 
     # Layer 2: global embedding cache
-    cached_embedding = redis_client.get(embedding_key)
+    try:
+        cached_embedding = redis_client.get(embedding_key)
+    except Exception:
+        cached_embedding = None
+
     if cached_embedding is not None:
         query_vector = json.loads(cached_embedding)
     else:
         query_vector = embedding_model.encode(query_text).tolist()
-        redis_client.set(embedding_key, json.dumps(query_vector), ex=EMBEDDING_CACHE_TTL)
+        try:
+            redis_client.set(embedding_key, json.dumps(query_vector), ex=EMBEDDING_CACHE_TTL)
+        except Exception:
+            pass
 
     pipeline = [
         {
@@ -64,7 +74,10 @@ def search():
     ]
 
     results = list(document_chunks_collection.aggregate(pipeline))
-    redis_client.set(result_key, json.dumps(results), ex=SEARCH_CACHE_TTL)
+    try:
+        redis_client.set(result_key, json.dumps(results), ex=SEARCH_CACHE_TTL)
+    except Exception:
+        pass
 
     response = jsonify(results)
     response.headers["X-Cache"] = "MISS"
