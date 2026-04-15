@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_bcrypt import generate_password_hash, check_password_hash
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
-import pymongo
+from pymongo.errors import DuplicateKeyError
 from clients import users_collection
 from config import PEPPER
 
@@ -18,17 +18,16 @@ def signup():
     if not creds or "username" not in creds or "password" not in creds:
         return jsonify({"error": "Invalid request"}), 400
 
-    if users_collection.find_one({"username": creds["username"]}):
-        return jsonify({"error": "Username already exists"}), 409
-
     new_user = {
         "username": creds["username"],
         "hashed_password": hash_password(creds["password"]),
     }
-    result = users_collection.insert_one(new_user)
-    user_id = str(result.inserted_id)
+    try:
+        result = users_collection.insert_one(new_user)
+    except DuplicateKeyError:
+        return jsonify({"error": "Username already exists"}), 409
 
-    return jsonify({"message": "User created successfully", "user_id": user_id}), 200
+    return jsonify({"message": "User created successfully", "user_id": str(result.inserted_id)}), 200
 
 
 @auth_bp.route("/auth/login", methods=["POST"])
