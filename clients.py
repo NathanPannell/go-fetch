@@ -12,7 +12,7 @@ from config import (
 )
 
 # --- MongoDB ---
-mongo_client = MongoClient(MONGO_URI)
+mongo_client = MongoClient(MONGO_URI, maxPoolSize=30)
 db = (
     mongo_client.get_database()
     if mongo_client.get_database().name
@@ -22,6 +22,11 @@ db = (
 users_collection = db["Users"]
 documents_collection = db["Documents"]
 document_chunks_collection = db["DocumentChunks"]
+
+
+def init_db_indexes():
+    users_collection.create_index("username", unique=True)
+    documents_collection.create_index("owner_id")
 
 
 def init_vector_search_index():
