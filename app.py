@@ -8,7 +8,7 @@ from flask import Flask
 from flask_jwt_extended import JWTManager
 from werkzeug.middleware.profiler import ProfilerMiddleware
 from config import JWT_SECRET_KEY
-from clients import init_vector_search_index
+from clients import init_vector_search_index, init_db_indexes
 from routes.health import health_bp
 from routes.auth import auth_bp
 from routes.documents import documents_bp
@@ -26,6 +26,7 @@ app.register_blueprint(search_bp)
 
 for _attempt in range(12):
     try:
+        init_db_indexes()
         init_vector_search_index()
         app.config["DB_READY"] = True
         break

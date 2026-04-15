@@ -1,4 +1,5 @@
 Flask
+gunicorn
 pymongo>=4.7
 python-dotenv
 flask-jwt-extended

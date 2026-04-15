@@ -87,6 +87,10 @@ def _dump_profiling(pr, task_id):
 
 @app.task
 def process_document(document_id, owner_id, filename):
+    doc = documents_collection.find_one({"_id": ObjectId(document_id)})
+    if not doc or doc.get("status") != "processing":
+        return
+
     profiling = os.environ.get("PROFILING_ENABLED", "").lower() == "true"
     if profiling:
         pr = _start_profiling()
@@ -103,14 +107,14 @@ def process_document(document_id, owner_id, filename):
             document_chunks_collection.insert_many(chunk_records)
 
         documents_collection.update_one(
-            {"_id": ObjectId(document_id)},
+            {"_id": ObjectId(document_id), "status": "processing"},
             {"$set": {"status": "ready", "page_count": page_count}},
         )
 
     except Exception as e:
         documents_collection.update_one(
-            {"_id": ObjectId(document_id)},
-            {"$set": {"status": "failed", "error_message": e}},
+            {"_id": ObjectId(document_id), "status": "processing"},
+            {"$set": {"status": "failed", "error_message": str(e)}},
         )
 
     finally:

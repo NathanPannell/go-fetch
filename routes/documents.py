@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -87,18 +88,22 @@ def delete_document(document_id):
     if not doc:
         return jsonify({"error": "Document not found or not owned by user"}), 404
 
-    documents_collection.delete_one({"_id": ObjectId(document_id), "owner_id": owner_id})
-    document_chunks_collection.delete_many(
-        {"document_id": document_id, "owner_id": owner_id}
-    )
-    minio_client.remove_object(minio_pdf_bucket_name, document_id)
+    try:
+        documents_collection.delete_one({"_id": ObjectId(document_id), "owner_id": owner_id})
+    except Exception as e:
+        logging.error("Delete failed at step=document_record document_id=%s: %s", document_id, e)
+        return jsonify({"error": "Failed to delete document record"}), 500
 
-    return (
-        jsonify(
-            {
-                "message": "Document and all associated data deleted",
-                "document_id": document_id,
-            }
-        ),
-        200,
-    )
+    try:
+        document_chunks_collection.delete_many({"document_id": document_id, "owner_id": owner_id})
+    except Exception as e:
+        logging.error("Delete failed at step=chunks document_id=%s: %s", document_id, e)
+        return jsonify({"error": "Failed to delete document chunks"}), 500
+
+    try:
+        minio_client.remove_object(minio_pdf_bucket_name, document_id)
+    except Exception as e:
+        logging.error("Delete failed at step=minio document_id=%s: %s", document_id, e)
+        return jsonify({"error": "Failed to delete document from storage"}), 500
+
+    return jsonify({"message": "Document and all associated data deleted", "document_id": document_id}), 200
