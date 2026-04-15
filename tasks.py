@@ -11,6 +11,7 @@ from clients import (
     minio_client,
     minio_pdf_bucket_name,
     embedding_model,
+    redis_client,
 )
 from bson import ObjectId
 
@@ -110,6 +111,9 @@ def process_document(document_id, owner_id, filename):
             {"_id": ObjectId(document_id), "status": "processing"},
             {"$set": {"status": "ready", "page_count": page_count}},
         )
+
+        for key in redis_client.scan_iter(f"search:{owner_id}:*"):
+            redis_client.delete(key)
 
     except Exception as e:
         documents_collection.update_one(
