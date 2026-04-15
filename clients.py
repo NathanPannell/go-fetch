@@ -1,4 +1,5 @@
 import pymongo
+import redis as redis_lib
 from pymongo import MongoClient
 from minio.error import S3Error
 from pymongo.operations import SearchIndexModel
@@ -9,6 +10,7 @@ from config import (
     MINIO_ENDPOINT,
     MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY,
+    REDIS_URL,
 )
 
 # --- MongoDB ---
@@ -72,6 +74,9 @@ try:
 except S3Error:
     # bucket already created by replica api
     pass
+
+# --- Redis cache (separate from Celery broker connection) ---
+redis_client = redis_lib.from_url(REDIS_URL, decode_responses=True)
 
 # --- Embeddings ---
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
