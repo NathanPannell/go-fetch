@@ -1,16 +1,17 @@
 import pymongo
 import redis as redis_lib
+import requests as http_requests
 from pymongo import MongoClient
 from minio.error import S3Error
 from pymongo.operations import SearchIndexModel
 from minio import Minio
-from sentence_transformers import SentenceTransformer
 from config import (
     MONGO_URI,
     MINIO_ENDPOINT,
     MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY,
     REDIS_URL,
+    EMBEDDER_URL,
 )
 
 # --- MongoDB ---
@@ -78,5 +79,20 @@ except S3Error:
 # --- Redis cache (separate from Celery broker connection) ---
 redis_client = redis_lib.from_url(REDIS_URL, decode_responses=True)
 
-# --- Embeddings ---
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# --- Embeddings (via sidecar) ---
+
+
+def embed_text(text):
+    resp = http_requests.post(
+        f"{EMBEDDER_URL}/embed", json={"text": text}, timeout=10
+    )
+    resp.raise_for_status()
+    return resp.json()["vector"]
+
+
+def embed_batch(texts):
+    resp = http_requests.post(
+        f"{EMBEDDER_URL}/embed/batch", json={"texts": texts}, timeout=120
+    )
+    resp.raise_for_status()
+    return resp.json()["vectors"]

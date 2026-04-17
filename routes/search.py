@@ -3,7 +3,7 @@ import json
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from clients import users_collection, document_chunks_collection, embedding_model, redis_client
+from clients import users_collection, document_chunks_collection, embed_text, redis_client
 from config import EMBEDDING_CACHE_TTL, SEARCH_CACHE_TTL
 
 search_bp = Blueprint("search", __name__)
@@ -45,7 +45,7 @@ def search():
     if cached_embedding is not None:
         query_vector = json.loads(cached_embedding)
     else:
-        query_vector = embedding_model.encode(query_text).tolist()
+        query_vector = embed_text(query_text)
         try:
             redis_client.set(embedding_key, json.dumps(query_vector), ex=EMBEDDING_CACHE_TTL)
         except Exception:

@@ -10,7 +10,7 @@ from clients import (
     document_chunks_collection,
     minio_client,
     minio_pdf_bucket_name,
-    embedding_model,
+    embed_batch,
     redis_client,
 )
 from bson import ObjectId
@@ -50,9 +50,9 @@ def _get_chunks(text):
 
 
 def _get_embeddings(chunks, owner_id, document_id, filename):
+    vectors = embed_batch(chunks)
     chunk_records = []
-    for chunk in chunks:
-        embedding = embedding_model.encode(chunk).tolist()
+    for chunk, embedding in zip(chunks, vectors):
         chunk_records.append(
             {
                 "owner_id": owner_id,

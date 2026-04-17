@@ -10,5 +10,3 @@ celery
 redis
 minio
 PyMuPDF
-sentence-transformers
-torch
