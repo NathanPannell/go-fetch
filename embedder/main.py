@@ -5,18 +5,22 @@ import threading
 from concurrent.futures import Future
 from contextlib import asynccontextmanager
 
-import onnxruntime as ort
 from fastembed import TextEmbedding
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-log = logging.getLogger("embedder")
-logging.basicConfig(level=logging.INFO)
+
+class EmbedRequest(BaseModel):
+    text: str
+
+
+class EmbedBatchRequest(BaseModel):
+    texts: list[str]
+
 
 N_SEARCH_WORKERS = int(os.environ.get("EMBED_SEARCH_WORKERS", "2"))
 N_INDEX_WORKERS = int(os.environ.get("EMBED_INDEX_WORKERS", "2"))
-
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 model: TextEmbedding | None = None
@@ -39,16 +43,9 @@ def _worker(q: queue.Queue) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model
-    available = ort.get_available_providers()
-    if "CUDAExecutionProvider" in available:
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-    else:
-        providers = ["CPUExecutionProvider"]
-    log.info("embedder providers selected: %s", providers)
-    model = TextEmbedding(model_name=MODEL_NAME, providers=providers)
-    # warm-up: forces model download + ORT session init before healthcheck passes
+    model = TextEmbedding(model_name=MODEL_NAME, providers=["CPUExecutionProvider"])
     list(model.embed(["warmup"]))
-    log.info("embedder model loaded: %s", MODEL_NAME)
+
     for _ in range(N_SEARCH_WORKERS):
         threading.Thread(target=_worker, args=(search_queue,), daemon=True).start()
     for _ in range(N_INDEX_WORKERS):
@@ -57,14 +54,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-class EmbedRequest(BaseModel):
-    text: str
-
-
-class EmbedBatchRequest(BaseModel):
-    texts: list[str]
 
 
 @app.get("/health")
