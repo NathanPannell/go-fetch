@@ -5,14 +5,28 @@ import itertools
 from concurrent.futures import Future
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 
 app = FastAPI()
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = None
+_model_loaded = False
 
-N_WORKERS = int(os.environ.get("EMBED_WORKERS", "2"))
+
+def _load_model():
+    global model, _model_loaded
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    _model_loaded = True
+
+
+_load_thread = threading.Thread(target=_load_model, daemon=True)
+_load_thread.start()
+_load_thread.join()
+
+N_SEARCH_WORKERS = int(os.environ.get("EMBED_SEARCH_WORKERS", "2"))
+N_INDEX_WORKERS = int(os.environ.get("EMBED_INDEX_WORKERS", "1"))
 
 _queue = queue.PriorityQueue()
 _counter = itertools.count()
@@ -41,13 +55,18 @@ def _worker():
             _queue.task_done()
 
 
-for _ in range(N_WORKERS):
+for _ in range(N_SEARCH_WORKERS + N_INDEX_WORKERS):
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
 
 
 @app.get("/health")
 def health():
+    if not _model_loaded:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "reason": "model not loaded"},
+        )
     return {"status": "ok"}
 
 

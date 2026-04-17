@@ -1,6 +1,8 @@
 import pymongo
 import redis as redis_lib
 import requests as http_requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from pymongo import MongoClient
 from minio.error import S3Error
 from pymongo.operations import SearchIndexModel
@@ -81,9 +83,17 @@ redis_client = redis_lib.from_url(REDIS_URL, decode_responses=True)
 
 # --- Embeddings (via sidecar) ---
 
+_embed_session = http_requests.Session()
+_retry_strategy = Retry(
+    total=3,
+    backoff_factor=0.5,
+    status_forcelist=[502, 503, 504],
+)
+_embed_session.mount("http://", HTTPAdapter(max_retries=_retry_strategy))
+
 
 def embed_text(text):
-    resp = http_requests.post(
+    resp = _embed_session.post(
         f"{EMBEDDER_URL}/embed", json={"text": text}, timeout=10
     )
     resp.raise_for_status()
@@ -91,7 +101,7 @@ def embed_text(text):
 
 
 def embed_batch(texts):
-    resp = http_requests.post(
+    resp = _embed_session.post(
         f"{EMBEDDER_URL}/embed/batch", json={"texts": texts}, timeout=120
     )
     resp.raise_for_status()
