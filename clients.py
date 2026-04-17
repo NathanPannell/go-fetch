@@ -1,16 +1,19 @@
 import pymongo
 import redis as redis_lib
+import requests as http_requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from pymongo import MongoClient
 from minio.error import S3Error
 from pymongo.operations import SearchIndexModel
 from minio import Minio
-from sentence_transformers import SentenceTransformer
 from config import (
     MONGO_URI,
     MINIO_ENDPOINT,
     MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY,
     REDIS_URL,
+    EMBEDDER_URL,
 )
 
 # --- MongoDB ---
@@ -78,5 +81,28 @@ except S3Error:
 # --- Redis cache (separate from Celery broker connection) ---
 redis_client = redis_lib.from_url(REDIS_URL, decode_responses=True)
 
-# --- Embeddings ---
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# --- Embeddings (via sidecar) ---
+
+_embed_session = http_requests.Session()
+_retry_strategy = Retry(
+    total=3,
+    backoff_factor=0.5,
+    status_forcelist=[502, 503, 504],
+)
+_embed_session.mount("http://", HTTPAdapter(max_retries=_retry_strategy))
+
+
+def embed_text(text):
+    resp = _embed_session.post(
+        f"{EMBEDDER_URL}/embed", json={"text": text}, timeout=10
+    )
+    resp.raise_for_status()
+    return resp.json()["vector"]
+
+
+def embed_batch(texts):
+    resp = _embed_session.post(
+        f"{EMBEDDER_URL}/embed/batch", json={"texts": texts}, timeout=120
+    )
+    resp.raise_for_status()
+    return resp.json()["vectors"]
