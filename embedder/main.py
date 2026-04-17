@@ -1,18 +1,29 @@
+import logging
 import os
 import queue
 import threading
 from concurrent.futures import Future
 from contextlib import asynccontextmanager
 
+from fastembed import TextEmbedding
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+
+
+class EmbedRequest(BaseModel):
+    text: str
+
+
+class EmbedBatchRequest(BaseModel):
+    texts: list[str]
+
 
 N_SEARCH_WORKERS = int(os.environ.get("EMBED_SEARCH_WORKERS", "2"))
-N_INDEX_WORKERS = int(os.environ.get("EMBED_INDEX_WORKERS", "1"))
+N_INDEX_WORKERS = int(os.environ.get("EMBED_INDEX_WORKERS", "2"))
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-model: SentenceTransformer | None = None
+model: TextEmbedding | None = None
 search_queue: queue.Queue = queue.Queue()  # latency-sensitive, single queries
 batch_queue: queue.Queue = queue.Queue()  # throughput-oriented, PDF chunks
 
@@ -21,8 +32,8 @@ def _worker(q: queue.Queue) -> None:
     while True:
         texts, future = q.get()
         try:
-            vectors = model.encode(texts)
-            future.set_result(vectors.tolist())
+            vectors = [v.tolist() for v in model.embed(texts)]
+            future.set_result(vectors)
         except Exception as e:
             future.set_exception(e)
         finally:
@@ -32,7 +43,9 @@ def _worker(q: queue.Queue) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+    model = TextEmbedding(model_name=MODEL_NAME, providers=["CPUExecutionProvider"])
+    list(model.embed(["warmup"]))
+
     for _ in range(N_SEARCH_WORKERS):
         threading.Thread(target=_worker, args=(search_queue,), daemon=True).start()
     for _ in range(N_INDEX_WORKERS):
@@ -41,14 +54,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-class EmbedRequest(BaseModel):
-    text: str
-
-
-class EmbedBatchRequest(BaseModel):
-    texts: list[str]
 
 
 @app.get("/health")
@@ -65,8 +70,8 @@ def health():
 def embed(req: EmbedRequest):
     future: Future = Future()
     search_queue.put(([req.text], future))
-    vector = future.result(timeout=10)
-    return {"vector": vector[0]}
+    vectors = future.result(timeout=10)
+    return {"vector": vectors[0]}
 
 
 @app.post("/embed/batch")
