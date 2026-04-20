@@ -6,12 +6,15 @@ services:
 
   mongo:
     image: mongodb/mongodb-atlas-local
+    ports:
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
       - mongo_configdb:/data/configdb
       - mongo_mongot:/data/mongot
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
+      test:
+        ["CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
       interval: 5s
       timeout: 10s
       retries: 10
@@ -68,7 +71,7 @@ services:
       embedder:
         condition: service_healthy
     deploy:
-      replicas: 1
+      replicas: 2
 
   worker:
     build: .
